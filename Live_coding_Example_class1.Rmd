@@ -1,0 +1,140 @@
+---
+title: "Example"
+author: "K. Enevoldsen"
+date: "3/3/2020"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+
+
+```{r setup}
+#devtools::install_github("thomasp85/patchwork", force = T) #installing patchwork form git
+pacman::p_load(pacman, 
+               tidyverse, 
+               rethinking,
+               patchwork) # for ordering plots together
+```
+
+# not used in class
+```{r data}
+  #creating a dataframe of the results
+results_df = data.frame(teacher = c("RF", "KT", "JS", "MW"), 
+                        correct = c(3, 2, 160, 66) , 
+                        n_quest = c(6, 2, 198, 132))
+
+  #defining the grid approximation
+length = 1e4 #10.000
+p_grid <- seq(0, 1, length.out = length)
+bin_size <- abs(p_grid[1] - p_grid[2]) # note this is equal to p_grid[2] as p_grid[1] == 0
+
+  #defining prior
+prior <- dnorm(p_grid, mean=0.9, sd=0.05) # informed prior - Normal(0.8, 0.2) trancated 
+plot(dbeta(p_grid, 8, 2)) # a beta distribution would probably be a better prior 
+
+plot(prior)
+  # estimating likelihood for RF
+likelihood <- dbinom(results_df$correct[results_df$teacher == "RF"], 
+                     size = results_df$n_quest[results_df$teacher == "RF"], 
+                     prob = p_grid)
+
+  # caluting posterior
+unstd_posterior <- likelihood*prior
+posterior <- unstd_posterior/sum(unstd_posterior*bin_size) # standardize posterior
+# Question for class: Why do we do this?
+```
+
+# not used in class
+```{r plot}
+d <- tibble(p_grid, prior, likelihood, posterior)
+
+prior_plot <- ggplot(d, aes(x = p_grid, y = prior)) + 
+  geom_line(color = "steelblue") + 
+  labs(x = "x", y = "Density", title = "Prior - P(correct)") + 
+  theme_bw()
+
+likelihood_plot <- ggplot(d, aes(x = p_grid, y = likelihood)) + 
+  geom_line(color = "steelblue") + 
+  labs(x = "x", y = "Density", title = "likelihood") + 
+  theme_bw()
+
+posterior_plot <- ggplot(d, aes(x = p_grid, y = posterior)) + 
+  geom_line(color = "steelblue") + 
+  labs(x = "x", y = "Density", title = "Posterior") + 
+  theme_bw()
+
+d1 <- d %>% 
+  pivot_longer(cols = c("prior", "likelihood", "posterior"), names_to = "name", values_to = "value")
+
+all_in_one <- ggplot(d1, aes(x = p_grid, y = value, color = name)) + 
+  geom_line() + 
+  labs(x = "x", y = "Density", title = "Posterior") + 
+  theme_bw()
+
+all_in_one
+(prior_plot + likelihood_plot + posterior_plot)
+
+```
+
+
+```{r data}
+  #creating a dataframe of the results
+results_df = data.frame(teacher = c("RF", "KT", "JS", "MW"), 
+                        correct = c(3, 2, 160, 66) , 
+                        n_quest = c(6, 2, 198, 132))
+
+# defining prior
+  # informed prior?
+p_grid <-   p_grid <- seq(0,1, length.out = 10000)
+bin_size <- abs(p_grid[1] - p_grid[2])
+inf_prior <- dbeta(p_grid, 8, 4)
+plot(inf_prior)
+sum(inf_prior*bin_size)
+sum(inf_prior*p_grid)
+
+inf_prior <- inf_prior/sum(inf_prior)
+sum(inf_prior[p_grid > 0.5])
+
+sum(inf_prior[p_grid > 0.5]*bin_size)
+
+source("../Class 3 assignment 2 part 2/my_useful_functions.R")
+kt_results <- calc_teacher(2, 2, prior = inf_prior)
+
+kt_results$teacher_posterior
+plot(kt_results$grid,
+     kt_results$teacher_posterior)
+
+# Question: why do we standardize?
+  # Why don't we standardize prior and likelihood?
+# How do we do this for all the teacher without copy and pasting?
+```
+
+Bayes theorem:
+$P(A|B) = \frac{P(A)P(B|A)}{P(B)$
+
+Where:
+$P(B) = \int{P(A)P(B|A)dA}$
+
+```{r plot live}
+
+pretty_plot(p_grid = kt_results$grid, 
+            prior = inf_prior, 
+            likelihood = kt_results$likelihood, 
+            posterior = kt_results$teacher_posterior, title = " ")
+
+sum(abs(kt_results$likelihood - kt_results$teacher_posterior) ) / length(kt_results$likelihood)
+
+
+sum(abs(inf_prior - kt_results$teacher_posterior)*bin_size)
+plot(p_grid,kt_results$teacher_posterior-0.6)
+# Question: How do we do this for all the probability distributions
+
+
+# Make all plots in one plot
+
+```
+
+
+
+
