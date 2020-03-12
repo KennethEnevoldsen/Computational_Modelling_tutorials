@@ -1,0 +1,208 @@
+---
+title: "Example"
+author: "K. Enevoldsen"
+date: "3/3/2020"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+
+
+```{r setup}
+#devtools::install_github("thomasp85/patchwork", force = T) #installing patchwork form git
+pacman::p_load(pacman, 
+               tidyverse, 
+               rethinking,
+               patchwork) # for ordering plots together
+```
+
+```{r data}
+  #creating a dataframe of the results
+results_df = data.frame(teacher = c("RF", "KT", "JS", "MW"), 
+                        correct = c(3, 2, 160, 66) , 
+                        n_quest = c(6, 2, 198, 132))
+
+# load function from class
+source("../Class 3 assignment 2 part 2/my_useful_functions_class2.R")
+
+
+  #defining the grid approximation
+length = 1e4 #10.000
+p_grid <- seq(0, 1, length.out = length)
+
+  #defining prior
+informed_p <- dnorm(p_grid, mean=0.9, sd=0.05) # informed prior 
+naive_p <- dbeta(p_grid, 1,1) # uninformed prior (flat)
+s_res_p <-  dnorm(p_grid, mean=0.5, sd=0.2) # slightly conservative prior 
+
+fanatical_p <- naive_p
+fanatical_p[p_grid > 0.5] = 0 
+plot(p_grid, s_res_p)
+
+res_RF <- calc_teacher_knowledge(n_correct = results_df$correct[results_df$teacher == "RF"], 
+                              n_questions = results_df$n_quest[results_df$teacher == "RF"], 
+                              prior = s_res_p)
+# Kristian 
+res_KT <- calc_teacher_knowledge(n_correct = results_df$correct[results_df$teacher == "KT"], 
+                              n_questions = results_df$n_quest[results_df$teacher == "KT"], 
+                              prior = s_res_p)
+res_MW <- calc_teacher_knowledge(n_correct = results_df$correct[results_df$teacher == "MW"], 
+                              n_questions = results_df$n_quest[results_df$teacher == "MW"], 
+                              prior = s_res_p)
+# used as an example for Josh
+res_JS <- calc_teacher_knowledge(n_correct = results_df$correct[results_df$teacher == "JS"], 
+                              n_questions = results_df$n_quest[results_df$teacher == "JS"], 
+                              prior = s_res_p)
+```
+
+```{r}
+p <- pretty_plot(p_grid = res_JS$grid, 
+            prior = res_JS$pri, 
+            likelihood = res_JS$lik, 
+            posterior = res_JS$pos, 
+            background = "white")
+
+pretty_plot(p_grid = res_RF$grid, prior = res_RF$pri, likelihood = res_RF$lik, posterior = res_RF$pos, background = "white")
+p1 <-  pretty_plot(p_grid = res_KT$grid, prior = res_KT$pri, likelihood = res_KT$lik, posterior = res_KT$pos, background = "white")
+
+# patchwork 
+(p + ggtitle("Josh")) + (p1 + ggtitle("Kristian"))
+
+
+JS_pos <- res_JS$pos
+KT_pos <- res_KT$pos
+MW_pos <- res_MW$pos
+JS_pos # vector of length == p_grid (10 000)
+
+sam_JS <- sample(size = 100000, x = p_grid, prob = JS_pos, replace = T)
+mean(sam_JS)
+sd(sam_JS)
+sam_KT <- sample(size = 100000, x = p_grid, prob = KT_pos, replace = T)
+mean(sam_KT)
+sd(sam_KT) # it equivalent to that the SD for KT is bigger than for JS and to say that the variance is bigger for KT that for JS given that variance = sd^2
+
+#Sample for mikkel
+sam_MW <- sample(size = 100000, x = p_grid, prob = MW_pos, replace = T)
+
+# this give you answer to - how likely is it that Kristian is smart than mikkel
+sum(sam_KT > sam_MW)/100000*100
+
+
+
+# make a posterior predictive plot - what would my model predict
+
+# how many answer you josh answer correct if here were given 178
+# simulate how many correct answer josh would
+pos_pred = rbinom(100000,  # how many times we simluate this
+                  size = 178, # how many question he was asked
+                  prob = sam_JS # samples of josh knowledge 
+                  )
+hist(pos_pred)
+
+# he answered 148 question correct
+sum(pos_pred >= 148-10 & pos_pred <= 148+10)/ # how is between 148 +/-3
+  100000 # out of the entire simulation
+
+sum(pos_pred >= 140)/ # how to answer how likely is it thatm josh get at least 148 question correct
+  100000 # out of the entire simulation
+
+prior - posterior # density
+# this gives distribution of error of your previous belief compared to your current
+
+# there is a 4.3 % chance that he would 148 correct
+  # is this the correct? Yes
+  # is this an interesting question? somewhat 
+    # hint* not really - what whould more interesting question be?
+```
+# answer:
+ 
+
+# question for later
+Perhaps plot the distribution of prediction errors?
+  Plotting the prediction error distribution would enable us to ask questions like; how likely is it that the model predicts the new data with at least 90% precision? #KCE precision defined quantity is statistic
+```{r}
+hist(pos_pred-148) # difference between model prediction and the actual observed result
+```
+
+
+
+# this is an example using latex
+$$
+\sigma^2 = variance 
+$$
+$$
+\sigma = standard \quad  deviation
+$$
+
+# question regarding:
+  1. mean and SD (and variance)
+  2. sampling from a distribution
+  3. comparing distributions
+
+
+
+# how to use the MAP
+```{r}
+# use the prior as an example
+plot(p_grid, s_res_p) # MAP should 0.5
+# not actually a map function: rethinking::map()
+#in the newest to quap() quap = quadratic approximation
+```
+
+
+# probability vs probability distribution
+```{r}
+  #defining the grid approximation
+length = 10
+p_grid <- seq(0, 1, length.out = length)
+
+s_res_p <-  dnorm(p_grid, mean=0.5, sd=0.2) # slightly conservative prior
+
+res_RF <- calc_teacher_knowledge(n_correct = results_df$correct[results_df$teacher == "RF"],
+                              n_questions = results_df$n_quest[results_df$teacher == "RF"],
+                              prior = s_res_p)
+p <- pretty_plot(p_grid, prior = res_RF$pri, likelihood = res_RF$lik, posterior =  res_RF$pos, background = "white")
+
+p+geom_point() 
+
+
+
+res_no_bin <- calc_teacher_knowledge_no_bin_size(
+  n_correct = results_df$correct[results_df$teacher == "RF"],
+  n_questions = results_df$n_quest[results_df$teacher == "RF"],
+                              prior = s_res_p)
+
+names(res_no_bin)
+  
+p <- pretty_plot(p_grid, prior = res_no_bin$pri, 
+                 likelihood = res_no_bin$lik, 
+                 posterior =  res_no_bin$pos, background = "white")
+
+p+geom_point() + labs(y = "posterior probability")
+```
+
+
+
+We will not get an introduction to the new assignment?
+Do you mean the exercises from chapter 5? If so - are you going to use the rethinking package or the brms package? # yes
+
+
+Do you have to make a sample in order to compare e.g. Kristian and Josh - couldn't you just use the actual estimates from the posterior distribution? - louise
+  Isn't the reason why you sample from the posterior that you get all of the uncertainty from your posterior distribution?
+
+
+
+```{r}
+# hint:
+  # split the x axis up into bins
+  # then height between the x axis and the density
+  # calculate the area of the bin  by multiplying the height width
+
+unlist(list("C", 1))
+NA/1
+
+```
+
+
+
